@@ -1,6 +1,6 @@
 # picocontroller
-Universal Raspberry Pi Pico USB controller for simulators, KSP, etc. \
-- Requires adafruit_hid library. \
+Universal Raspberry Pi Pico USB controller for simulators, KSP, etc.
+- Requires adafruit_hid library.
 - I2C must be pulled up on GP0 and GP1.
 
 ## Licenses of code used
