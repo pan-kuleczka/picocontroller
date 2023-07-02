@@ -4,6 +4,11 @@ Universal Raspberry Pi Pico USB controller for simulators, KSP, etc.
 - I2C must be pulled up on GP0 and GP1.
 
 ## Licenses of code used
+
+### Display driver
+Made by my friend, Filip F
+
+### Controller driver
 The MIT License (MIT)
 
 Copyright (c) 2017 Scott Shawcroft for Adafruit Industries

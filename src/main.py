@@ -6,6 +6,9 @@ import analogio
 import bitbangio
 import usb_hid
 import adafruit_hid
+import microcontroller
+
+from lib.display import Display as LedDisplay
 
 ### SETTINGS ###
 button_count = 8
@@ -21,13 +24,6 @@ analog_pins = [board.A0]  # Each analog pin is a separate axis
 button_byte_count = int(button_count / 8) if button_count % 8 == 0 else int(button_count / 8) + 1  # button_bytes = button_count / 8 rounded up
 axes_byte_count = len(analog_pins)  # Each axis needs a separate byte
 report_byte_count = button_byte_count + axes_byte_count
-'''class LedDisplayModule:
-    i2c = None
-    display = None
-
-    def __init__(self, i2c, address=0x0):
-        self.i2c = i2c'''
-
 
 class IOExpander:
     def __init__(self, i2c, address=0x38, bytes=1):
@@ -38,7 +34,10 @@ class IOExpander:
 
     def read_bytes(self):
         buffer = bytearray(self.bytes)
+        while not self.i2c.try_lock():
+            time.sleep(0.1)
         self.i2c.readfrom_into(self.address, buffer)
+        self.i2c.unlock()
         return buffer
 
 
@@ -54,15 +53,12 @@ class AnalogInput:
 
 
 class InputManager:
-    def __init__(self):
-        i2c = bitbangio.I2C(i2c_scl, i2c_sda)
-        while not i2c.try_lock():
-            time.sleep(0.1)
-
+    def __init__(self, i2c):
+        self.i2c = i2c
         physical_button_count = 0
 
         self.io_expanders = [
-            IOExpander(i2c, address) for address in io_expander_addresses
+            IOExpander(self.i2c, address) for address in io_expander_addresses
         ]
 
         for io_expander in self.io_expanders:
@@ -97,7 +93,10 @@ class InputManager:
 # Controller driver based on https://github.com/adafruit/Adafruit_CircuitPython_HID/blob/main/examples/hid_gamepad.py
 class Controller:
     def __init__(self):
-        self.input_manager = InputManager()
+        self.i2c = bitbangio.I2C(i2c_scl, i2c_sda)
+
+        self.input_manager = InputManager(self.i2c)
+        self.ledDisplay = LedDisplay(self.i2c)
 
         self.device = adafruit_hid.find_device(usb_hid.devices, usage_page=0x01, usage=0x05)
         self.state = [0x00] * report_byte_count
@@ -133,8 +132,7 @@ class Controller:
     def send(self, always=False):
         # Send a report with all the existing settings.
         # If ``always`` is ``False`` (the default), send only if there have been changes.
-        print(self.state)
-        print(report_byte_count)
+        
         struct.pack_into(
             "<" + "B" * button_byte_count + "b" * axes_byte_count,
             self.report,
@@ -147,7 +145,6 @@ class Controller:
             # Remember what we sent, without allocating new storage.
             self.last_report = self.report
 
-
 def main():
     controller = Controller()
 
@@ -156,18 +153,14 @@ def main():
 
     while True:
         board_led.value = not board_led.value
+
         controller.update_state()
         controller.send(always=True)
-        print("\n")
-        '''print(
-            "I2C addresses found:",
-            [hex(device_address) for device_address in i2c.scan()],
-        )'''
 
-        time.sleep(0.2)
-
-    i2c.unlock()
-
+        temperature = microcontroller.cpu.temperature
+        controller.ledDisplay.print("{:.1f}".format(temperature) + "*C")
+        
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     main()
